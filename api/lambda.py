@@ -77,7 +77,7 @@ def read_logs(event):
     logs = boto3.client('logs')
     payload = event.get('data')
     job_id = payload.get('job_id')
-    log_group_name = f'/infraweave/{region}/{environment}'
+    log_group_name = f'/infraweave/{region}/{environment}/runner'
     log_stream_name = f'ecs/runner/{job_id}'
     response_dict = logs.get_log_events(
         logGroupName=log_group_name,

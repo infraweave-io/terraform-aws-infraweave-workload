@@ -4,7 +4,7 @@ resource "aws_lambda_function" "lambda" {
 
   timeout = 300
 
-  image_uri = "infraweave/reconciler-aws"
+  image_uri = var.reconciler_image_uri
   role     = aws_iam_role.iam_for_lambda.arn
 
   package_type = "Image"

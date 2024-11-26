@@ -57,3 +57,7 @@ variable "central_account_id" {
 variable "driftcheck_schedule_expression" {
   type = string
 }
+
+variable "reconciler_image_uri" {
+  type = string
+}

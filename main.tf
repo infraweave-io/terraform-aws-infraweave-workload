@@ -1,6 +1,5 @@
 locals {
   account_id             = var.central_account_id
-  organization_id        = var.organization_id
   is_workload_in_central = var.central_account_id == data.aws_caller_identity.current.account_id
 
   dynamodb_table_names = {
@@ -59,6 +58,7 @@ module "reconciler" {
   security_group_id              = resource.aws_security_group.ecs_sg.id
   central_account_id             = var.central_account_id
   driftcheck_schedule_expression = var.driftcheck_schedule_expression
+  reconciler_image_uri           = "${aws_ecr_repository.pull_through_ecr.repository_url}/infraweave/reconciler-aws:arm64"
 }
 
 resource "aws_iam_role" "ecs_service_role" {
@@ -180,7 +180,7 @@ resource "aws_ssm_parameter" "ecs_cluster_name" {
 }
 
 resource "aws_iam_role" "ecs_task_execution_role" {
-  name = "ecsTaskExecutionRole"
+  name = "ecsTaskExecutionRole-${var.region}-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -215,7 +215,7 @@ resource "aws_ecs_task_definition" "terraform_task" {
 
   container_definitions = jsonencode([{
     name      = "terraform-docker"
-    image     = "infraweave/runner" #"ghcr.io/infraweave-io/infraweave:main"
+    image     = "${aws_ecr_repository.pull_through_ecr.repository_url}/infraweave/runner:arm64"
     cpu       = 1024
     memory    = 2048
     essential = true
@@ -365,4 +365,18 @@ data "aws_iam_policy_document" "lambda_policy_document" {
     ]
     resources = ["*"]
   }
+}
+
+resource "aws_ecr_repository" "pull_through_ecr" {
+  name = "infraweave-workload-${var.environment}-pull-through-cache"
+
+  image_tag_mutability = "MUTABLE"
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
+resource "aws_ecr_pull_through_cache_rule" "rule" {
+  ecr_repository_prefix = "infraweave"
+  upstream_registry_url = "quay.io"
 }

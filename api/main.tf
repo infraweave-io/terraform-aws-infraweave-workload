@@ -1,6 +1,6 @@
 
 resource "aws_lambda_function" "api" {
-  function_name = "infraweave_api"
+  function_name = "infraweave-api-${var.environment}"
   runtime       = "python3.12"
   handler       = "lambda.handler"
 
@@ -197,7 +197,7 @@ data "aws_iam_policy_document" "lambda_policy_document" {
 }
 
 resource "aws_iam_role" "iam_for_lambda" {
-  name               = "infraweave_api_role-${var.region}"
+  name               = "infraweave_api_role-${var.region}-${var.environment}"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -217,7 +217,7 @@ resource "aws_iam_role" "iam_for_lambda" {
 }
 
 resource "aws_iam_policy" "lambda_policy" {
-  name        = "infraweave_api_workload_access_policy-${var.region}"
+  name        = "infraweave_api_workload_access_policy-${var.region}-${var.environment}"
   description = "IAM policy for Lambda to launch CodeBuild and access CloudWatch Logs"
   policy      = data.aws_iam_policy_document.lambda_policy_document.json
 }

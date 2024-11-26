@@ -1,6 +1,6 @@
 
 resource "aws_lambda_function" "lambda" {
-  function_name = "infraweave_reconciler"
+  function_name = "infraweave-reconciler-${var.environment}"
 
   timeout = 300
 
@@ -32,7 +32,7 @@ resource "aws_lambda_function" "lambda" {
 }
 
 resource "aws_cloudwatch_event_rule" "lambda_schedule" {
-  name                = "infraweave_reconciler_schedule"
+  name                = "infraweave_reconciler_schedule-${var.environment}"
   schedule_expression = var.driftcheck_schedule_expression
 }
 
@@ -66,7 +66,7 @@ data "aws_iam_policy_document" "lambda_policy_document" {
 }
 
 resource "aws_iam_role" "iam_for_lambda" {
-  name               = "infraweave_reconciler_workload_role-${var.region}"
+  name               = "infraweave_reconciler_workload_role-${var.region}-${var.environment}"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -85,7 +85,7 @@ resource "aws_iam_role" "iam_for_lambda" {
 }
 
 resource "aws_iam_policy" "lambda_policy" {
-  name        = "infraweave_reconciler_workload_access_policy-${var.region}"
+  name        = "infraweave_reconciler_workload_access_policy-${var.region}-${var.environment}"
   description = "IAM policy for Lambda to launch CodeBuild and access CloudWatch Logs"
   policy      = data.aws_iam_policy_document.lambda_policy_document.json
 }

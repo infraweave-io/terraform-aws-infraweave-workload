@@ -58,7 +58,7 @@ module "reconciler" {
   security_group_id              = resource.aws_security_group.ecs_sg.id
   central_account_id             = var.central_account_id
   driftcheck_schedule_expression = var.driftcheck_schedule_expression
-  reconciler_image_uri           = "${aws_ecr_repository.pull_through_ecr.repository_url}/infraweave/reconciler-aws:arm64"
+  reconciler_image_uri           = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com/infraweave/infraweave/reconciler-aws:arm64"
 }
 
 resource "aws_iam_role" "ecs_service_role" {
@@ -214,15 +214,15 @@ resource "aws_ecs_task_definition" "terraform_task" {
   }
 
   container_definitions = jsonencode([{
-    name      = "terraform-docker"
-    image     = "${aws_ecr_repository.pull_through_ecr.repository_url}/infraweave/runner:arm64"
+    name      = "runner"
+    image     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com/infraweave/infraweave/runner:arm64"
     cpu       = 1024
     memory    = 2048
     essential = true
     logConfiguration = {
       logDriver = "awslogs"
       options = {
-        awslogs-group         = "/ecs/terraform"
+        awslogs-group         = aws_cloudwatch_log_group.ecs_log_group.name
         awslogs-region        = var.region
         awslogs-stream-prefix = "ecs"
       }
@@ -275,13 +275,13 @@ resource "aws_ssm_parameter" "ecs_task_definition" {
 }
 
 resource "aws_cloudwatch_log_group" "ecs_log_group" {
-  name              = "/ecs/terraform"
+  name              = "/infraweave/${var.region}/${var.environment}/runner"
   retention_in_days = 365 # Optional retention period
 }
 
 
 resource "aws_cloudwatch_log_resource_policy" "cross_account_read_policy" {
-  policy_name = "CentralApiReadPolicy"
+  policy_name = "CentralApiReadPolicy-${var.region}-${var.environment}"
 
   policy_document = <<EOF
 {
@@ -304,7 +304,7 @@ EOF
 }
 
 resource "aws_iam_policy" "user_lambda_policy" {
-  name        = "infraweave_api_user_policy-${var.region}"
+  name        = "infraweave_api_user_policy-${var.region}-${var.environment}"
   description = "IAM policy to use api lambda"
   policy      = data.aws_iam_policy_document.user_lambda_policy_document.json
 }
@@ -325,7 +325,7 @@ data "aws_iam_policy_document" "user_lambda_policy_document" {
 ######
 
 resource "aws_iam_role" "iam_for_lambda" {
-  name = "infraweave_api_read_log-${var.region}"
+  name = "infraweave_api_read_log-${var.region}-${var.environment}"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -334,7 +334,7 @@ resource "aws_iam_role" "iam_for_lambda" {
           "sts:AssumeRole",
         ]
         Principal = {
-          AWS = "arn:aws:iam::${var.central_account_id}:role/infraweave_api_role-${var.region}"
+          AWS = "arn:aws:iam::${var.central_account_id}:role/infraweave_api_role-${var.region}-${var.environment}"
         }
         Effect = "Allow"
         Sid    = ""
@@ -344,7 +344,7 @@ resource "aws_iam_role" "iam_for_lambda" {
 }
 
 resource "aws_iam_policy" "lambda_policy" {
-  name        = "infraweave_api_central_log_read_access_policy-${var.region}"
+  name        = "infraweave_api_central_log_read_access_policy-${var.region}-${var.environment}"
   description = "IAM policy for Lambda to read and access CloudWatch Logs from central account"
   policy      = data.aws_iam_policy_document.lambda_policy_document.json
 }
@@ -365,18 +365,4 @@ data "aws_iam_policy_document" "lambda_policy_document" {
     ]
     resources = ["*"]
   }
-}
-
-resource "aws_ecr_repository" "pull_through_ecr" {
-  name = "infraweave-workload-${var.environment}-pull-through-cache"
-
-  image_tag_mutability = "MUTABLE"
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-}
-
-resource "aws_ecr_pull_through_cache_rule" "rule" {
-  ecr_repository_prefix = "infraweave"
-  upstream_registry_url = "quay.io"
 }

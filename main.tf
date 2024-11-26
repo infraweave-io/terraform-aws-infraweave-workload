@@ -229,6 +229,10 @@ resource "aws_ecs_task_definition" "terraform_task" {
     }
     environment = [
       {
+        name = "LOG_LEVEL"
+        value = "info"
+      },
+      {
         name  = "ACCOUNT_ID"
         value = data.aws_caller_identity.current.account_id
       },

@@ -121,8 +121,12 @@ def start_runner(event):
         taskDefinition=ecs_task_definition,
         launchType='FARGATE',
         overrides={
+            'cpu': payload.get('cpu'),
+            'memory': payload.get('memory'),
             'containerOverrides': [{
                 'name': 'runner',
+                'cpu': int(payload.get('cpu')),
+                'memory': int(payload.get('memory')),
                 'environment': [
                     {
                         "name": "PAYLOAD",

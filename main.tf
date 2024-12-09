@@ -308,6 +308,8 @@ EOF
 }
 
 resource "aws_iam_policy" "user_lambda_policy" {
+  count = local.is_workload_in_central ? 0 : 1
+
   name        = "infraweave_api_user_policy-${var.region}-${var.environment}"
   description = "IAM policy to use api lambda"
   policy      = data.aws_iam_policy_document.user_lambda_policy_document.json
@@ -315,6 +317,8 @@ resource "aws_iam_policy" "user_lambda_policy" {
 
 
 data "aws_iam_policy_document" "user_lambda_policy_document" {
+  count = local.is_workload_in_central ? 0 : 1
+
   statement {
     actions = [
       "lambda:*"

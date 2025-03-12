@@ -1,22 +1,29 @@
 locals {
-  account_id             = var.central_account_id
   is_workload_in_central = var.central_account_id == data.aws_caller_identity.current.account_id
 
   dynamodb_table_names = {
-    events         = "Events-${local.account_id}-${var.region}-${var.environment}",
-    modules        = "Modules-${local.account_id}-${var.region}-${var.environment}",
-    policies       = "Policies-${local.account_id}-${var.region}-${var.environment}",
-    change_records = "ChangeRecords-${local.account_id}-${var.region}-${var.environment}",
-    deployments    = "Deployments-${local.account_id}-${var.region}-${var.environment}",
+    events         = "Events-${var.central_account_id}-${var.region}-${var.environment}",
+    modules        = "Modules-${var.central_account_id}-${var.region}-${var.environment}",
+    policies       = "Policies-${var.central_account_id}-${var.region}-${var.environment}",
+    change_records = "ChangeRecords-${var.central_account_id}-${var.region}-${var.environment}",
+    deployments    = "Deployments-${var.central_account_id}-${var.region}-${var.environment}",
     tf_locks       = "TerraformStateDynamoDBLocks-${var.region}-${var.environment}",
   }
 
   bucket_names = {
-    modules        = "tf-modules-${local.account_id}-${var.region}-${var.environment}",
-    policies       = "tf-policies-${local.account_id}-${var.region}-${var.environment}",
-    change_records = "tf-change-records-${local.account_id}-${var.region}-${var.environment}",
-    tf_state       = "tf-state-${local.account_id}-${var.region}-${var.environment}",
+    modules        = "tf-modules-${var.central_account_id}-${var.region}-${var.environment}",
+    policies       = "tf-policies-${var.central_account_id}-${var.region}-${var.environment}",
+    change_records = "tf-change-records-${var.central_account_id}-${var.region}-${var.environment}",
+    tf_state       = "tf-state-${var.central_account_id}-${var.region}-${var.environment}",
   }
+
+  notification_topic_arn = "arn:aws:sns:${var.region}:${var.central_account_id}:infraweave-${var.environment}"
+
+  image_version = "v0.0.60-arm64"
+
+  image            = "l0j0u4o5/infraweave/runner:${local.image_version}"
+  pull_through_ecr = "infraweave-ecr-public"
+  runner_image_uri = "${var.central_account_id}.dkr.ecr.${var.region}.amazonaws.com/${local.pull_through_ecr}/${local.image}"
 }
 
 module "api" {
@@ -38,6 +45,7 @@ module "api" {
   security_group_id         = resource.aws_security_group.ecs_sg.id
   central_account_id        = var.central_account_id
   ecs_cluster_name          = aws_ecs_cluster.ecs_cluster.name
+  notification_topic_arn    = local.notification_topic_arn
 }
 
 module "reconciler" {
@@ -155,9 +163,16 @@ resource "aws_security_group" "ecs_sg" {
   # No ingress rules
 
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
@@ -215,7 +230,7 @@ resource "aws_ecs_task_definition" "terraform_task" {
 
   container_definitions = jsonencode([{
     name      = "runner"
-    image     = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com/infraweave/infraweave/runner:arm64"
+    image     = local.runner_image_uri
     cpu       = 1024
     memory    = 2048
     essential = true
@@ -229,7 +244,7 @@ resource "aws_ecs_task_definition" "terraform_task" {
     }
     environment = [
       {
-        name = "LOG_LEVEL"
+        name  = "LOG_LEVEL"
         value = "info"
       },
       {
@@ -242,7 +257,7 @@ resource "aws_ecs_task_definition" "terraform_task" {
       },
       {
         name  = "TF_DYNAMODB_TABLE"
-        value = "arn:aws:dynamodb:${var.region}:${local.account_id}:table/${local.dynamodb_table_names.tf_locks}"
+        value = "arn:aws:dynamodb:${var.region}:${var.central_account_id}:table/${local.dynamodb_table_names.tf_locks}"
       },
       {
         name  = "DYNAMODB_DEPLOYMENT_TABLE" // TODO remove?
@@ -305,28 +320,6 @@ resource "aws_cloudwatch_log_resource_policy" "cross_account_read_policy" {
   ]
 }
 EOF
-}
-
-resource "aws_iam_policy" "user_lambda_policy" {
-  count = local.is_workload_in_central ? 0 : 1
-
-  name        = "infraweave_api_user_policy-${var.region}-${var.environment}"
-  description = "IAM policy to use api lambda"
-  policy      = data.aws_iam_policy_document.user_lambda_policy_document.json
-}
-
-
-data "aws_iam_policy_document" "user_lambda_policy_document" {
-  count = local.is_workload_in_central ? 0 : 1
-
-  statement {
-    actions = [
-      "lambda:*"
-    ]
-    resources = [
-      module.api[0].api_function_arn,
-    ]
-  }
 }
 
 

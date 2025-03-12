@@ -20,7 +20,7 @@ resource "aws_lambda_function" "api" {
       DYNAMODB_CHANGE_RECORDS_TABLE_NAME = var.change_records_table_name
       MODULE_S3_BUCKET                   = var.modules_s3_bucket
       POLICY_S3_BUCKET                   = var.policies_s3_bucket
-      CHANGE_RECORD_S3_BUCKET           = var.change_records_s3_bucket
+      CHANGE_RECORD_S3_BUCKET            = var.change_records_s3_bucket
       REGION                             = var.region
       ENVIRONMENT                        = var.environment
       ECS_CLUSTER_NAME                   = var.ecs_cluster_name
@@ -28,11 +28,19 @@ resource "aws_lambda_function" "api" {
       SUBNET_ID                          = var.subnet_id
       SECURITY_GROUP_ID                  = var.security_group_id
       CENTRAL_ACCOUNT_ID                 = var.central_account_id
+      NOTIFICATION_TOPIC_ARN             = var.notification_topic_arn
     }
   }
 }
 
 data "aws_iam_policy_document" "lambda_policy_document" {
+
+  statement {
+    effect    = "Allow"
+    actions   = ["sns:Publish"]
+    resources = [var.notification_topic_arn]
+  }
+
   statement {
     actions = [
       "ecs:RunTask",
@@ -46,8 +54,8 @@ data "aws_iam_policy_document" "lambda_policy_document" {
       "logs:PutLogEvents",
       "logs:GetLogEvents",
       "sqs:createqueue",
-      "s3:GetObject", # for pre-signed URLs
-      "s3:PutObject", # to upload modules,
+      "s3:GetObject",  # for pre-signed URLs
+      "s3:PutObject",  # to upload modules,
       "s3:ListBucket", # to list modules (for downloading to check diff using cli)
       "sts:TagSession",
       "sts:AssumeRole",
@@ -196,8 +204,15 @@ data "aws_iam_policy_document" "lambda_policy_document" {
   }
 }
 
+resource "aws_lambda_permission" "allow_invoke_from_central_account" {
+  statement_id  = "AllowInvokeFromCentralAccount"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api.function_name
+  principal     = "arn:aws:iam::${var.central_account_id}:root"
+}
+
 resource "aws_iam_role" "iam_for_lambda" {
-  name               = "infraweave_api_role-${var.region}-${var.environment}"
+  name = "infraweave_api_role-${var.region}-${var.environment}"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [

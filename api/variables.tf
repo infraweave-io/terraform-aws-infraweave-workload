@@ -51,9 +51,13 @@ variable "security_group_id" {
 }
 
 variable "central_account_id" {
-  type    = string
+  type = string
 }
 
 variable "ecs_cluster_name" {
+  type = string
+}
+
+variable "notification_topic_arn" {
   type = string
 }

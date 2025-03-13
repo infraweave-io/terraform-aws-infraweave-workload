@@ -42,6 +42,16 @@ data "aws_iam_policy_document" "lambda_policy_document" {
   }
 
   statement {
+    sid = "KMSAccess"
+    actions = [
+      "kms:Decrypt",
+    ]
+    resources = [
+      "arn:aws:kms:*:${var.central_account_id}:*"
+    ]
+  }
+
+  statement {
     actions = [
       "ecs:RunTask",
       "iam:PassRole",

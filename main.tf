@@ -19,11 +19,20 @@ locals {
 
   notification_topic_arn = "arn:aws:sns:${var.region}:${var.central_account_id}:infraweave-${var.environment}"
 
-  image_version = "v0.0.60-arm64"
+  image_version = "v0.0.69-rc.0-arm64"
 
-  image            = "l0j0u4o5/infraweave/runner:${local.image_version}"
   pull_through_ecr = "infraweave-ecr-public"
-  runner_image_uri = "${var.central_account_id}.dkr.ecr.${var.region}.amazonaws.com/${local.pull_through_ecr}/${local.image}"
+
+  runner_image     = "infraweave/runner:${local.image_version}"
+  runner_image_uri = "${var.central_account_id}.dkr.ecr.${var.region}.amazonaws.com/${local.pull_through_ecr}/${local.runner_image}"
+
+  reconciler_image     = "infraweave/reconciler-aws:${local.image_version}"
+  reconciler_image_uri = "${var.central_account_id}.dkr.ecr.${var.region}.amazonaws.com/${local.pull_through_ecr}/${local.reconciler_image}"
+
+  oidc_allowed_github_repos = flatten([
+    for project in var.all_workload_projects : project.github_repos_oidc
+    if project.project_id == data.aws_caller_identity.current.account_id
+  ])
 }
 
 module "api" {
@@ -66,7 +75,19 @@ module "reconciler" {
   security_group_id              = resource.aws_security_group.ecs_sg.id
   central_account_id             = var.central_account_id
   driftcheck_schedule_expression = var.driftcheck_schedule_expression
-  reconciler_image_uri           = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.region}.amazonaws.com/infraweave/infraweave/reconciler-aws:arm64"
+  reconciler_image_uri           = local.reconciler_image_uri
+}
+
+module "oidc" {
+  count  = length(local.oidc_allowed_github_repos) > 0 ? 1 : 0
+  source = "./oidc"
+
+  infraweave_env            = var.environment
+  oidc_allowed_github_repos = local.oidc_allowed_github_repos
+
+  providers = {
+    aws = aws
+  }
 }
 
 resource "aws_iam_role" "ecs_service_role" {

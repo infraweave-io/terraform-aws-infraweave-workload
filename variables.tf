@@ -17,11 +17,6 @@ variable "driftcheck_schedule_expression" {
   default = "rate(2 minutes)"
 }
 
-variable "organization_id" {
-  type     = string
-  nullable = false
-}
-
 variable "all_workload_projects" {
   description = "List of workload project names to project id + regions, github_repos should to be set when `enable_webhook_processor` is true"
   type = list(

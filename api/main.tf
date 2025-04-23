@@ -45,6 +45,7 @@ data "aws_iam_policy_document" "lambda_policy_document" {
     sid = "KMSAccess"
     actions = [
       "kms:Decrypt",
+      "kms:GenerateDataKey",
     ]
     resources = [
       "arn:aws:kms:*:${var.central_account_id}:*"

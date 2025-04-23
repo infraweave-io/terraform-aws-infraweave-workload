@@ -42,6 +42,10 @@ variable "change_records_s3_bucket" {
   type = string
 }
 
+variable "providers_s3_bucket" {
+  type = string
+}
+
 variable "subnet_id" {
   type = string
 }

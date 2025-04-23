@@ -21,6 +21,7 @@ resource "aws_lambda_function" "api" {
       MODULE_S3_BUCKET                   = var.modules_s3_bucket
       POLICY_S3_BUCKET                   = var.policies_s3_bucket
       CHANGE_RECORD_S3_BUCKET            = var.change_records_s3_bucket
+      PROVIDERS_S3_BUCKET                = var.providers_s3_bucket
       REGION                             = var.region
       ENVIRONMENT                        = var.environment
       ECS_CLUSTER_NAME                   = var.ecs_cluster_name

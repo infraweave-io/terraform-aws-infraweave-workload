@@ -25,7 +25,8 @@ ecs_task_definition = os.environ.get('ECS_TASK_DEFINITION')
 buckets = {
     'modules': os.environ.get('MODULE_S3_BUCKET'),
     'policies': os.environ.get('POLICY_S3_BUCKET'),
-    'change_records': os.environ.get('CHANGE_RECORD_S3_BUCKET')
+    'change_records': os.environ.get('CHANGE_RECORD_S3_BUCKET'),
+    'providers': os.environ.get('PROVIDERS_S3_BUCKET'),
 }
     
 def insert_db(event):

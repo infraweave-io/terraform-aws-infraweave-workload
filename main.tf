@@ -15,6 +15,7 @@ locals {
     policies       = "tf-policies-${var.central_account_id}-${var.region}-${var.environment}",
     change_records = "tf-change-records-${var.central_account_id}-${var.region}-${var.environment}",
     tf_state       = "tf-state-${var.central_account_id}-${var.region}-${var.environment}",
+    providers      = "tf-providers-${var.central_account_id}-${var.region}-${var.environment}",
   }
 
   notification_topic_arn = "arn:aws:sns:${var.region}:${var.central_account_id}:infraweave-${var.environment}"
@@ -50,6 +51,7 @@ module "api" {
   modules_s3_bucket         = local.bucket_names.modules
   policies_s3_bucket        = local.bucket_names.policies
   change_records_s3_bucket  = local.bucket_names.change_records
+  providers_s3_bucket       = local.bucket_names.providers
   subnet_id                 = resource.aws_subnet.public[0].id # TODO: use both subnets
   security_group_id         = resource.aws_security_group.ecs_sg.id
   central_account_id        = var.central_account_id

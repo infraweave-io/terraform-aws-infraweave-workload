@@ -51,7 +51,7 @@ variable "security_group_id" {
 }
 
 variable "central_account_id" {
-  type    = string
+  type = string
 }
 
 variable "driftcheck_schedule_expression" {

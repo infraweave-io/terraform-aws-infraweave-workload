@@ -110,6 +110,7 @@ resource "aws_iam_role" "ecs_service_role" {
   })
 }
 
+#trivy:ignore:aws-iam-no-policy-wildcards
 resource "aws_iam_role_policy" "ecs_policy" {
   name = "ecs-infraweave-${var.environment}-policy"
   role = aws_iam_role.ecs_service_role.id
@@ -120,23 +121,9 @@ resource "aws_iam_role_policy" "ecs_policy" {
       {
         Effect = "Allow"
         Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents",
-          "s3:*",
-          "dynamodb:PutItem",
-          "dynamodb:GetItem",
-          "dynamodb:DeleteItem",
-          "kms:Encrypt",
-          "kms:Decrypt",
-          "kms:ReEncrypt*",
-          "kms:GenerateDataKey*",
-          "kms:DescribeKey",
-          "sqs:sendmessage",
-          "lambda:InvokeFunction",
-          "*", # TODO - restrict to specific actions
+          "*", # Intentional, needs access to manage resources when running Terraform
         ]
-        Resource = "*" # Replace with specific resources
+        Resource = "*"
       },
     ]
   })
@@ -146,14 +133,58 @@ data "aws_caller_identity" "current" {}
 
 resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
+  tags = {
+    Name = "runner-vpc-infraweave-${var.environment}"
+  }
+}
+
+resource "aws_flow_log" "main" {
+  log_destination      = aws_s3_bucket.flow_logs.arn
+  log_destination_type = "s3"
+  traffic_type         = "ALL"
+  vpc_id               = aws_vpc.main.id
+  destination_options {
+    file_format        = "parquet"
+    per_hour_partition = true
+  }
+}
+
+#trivy:ignore:aws-s3-enable-bucket-logging
+resource "aws_s3_bucket" "flow_logs" {
+  bucket_prefix = "vpc-flow-logs-infraweave-${var.environment}"
+}
+
+resource "aws_s3_bucket_versioning" "flow_logs" {
+  bucket = aws_s3_bucket.flow_logs.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+#trivy:ignore:aws-s3-encryption-customer-key
+resource "aws_s3_bucket_server_side_encryption_configuration" "flow_logs" {
+  bucket = aws_s3_bucket.flow_logs.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "flow_logs" {
+  bucket = aws_s3_bucket.flow_logs.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
 resource "aws_subnet" "public" {
-  count                   = 2
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = cidrsubnet(aws_vpc.main.cidr_block, 8, count.index)
-  availability_zone       = element(["${var.region}a", "${var.region}b"], count.index)
-  map_public_ip_on_launch = true
+  count             = 2
+  vpc_id            = aws_vpc.main.id
+  cidr_block        = cidrsubnet(aws_vpc.main.cidr_block, 8, count.index)
+  availability_zone = element(["${var.region}a", "${var.region}b"], count.index)
 }
 
 resource "aws_ssm_parameter" "ecs_subnet_id" {
@@ -180,8 +211,10 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
+#trivy:ignore:aws-ec2-no-public-egress-sgr
 resource "aws_security_group" "ecs_sg" {
-  vpc_id = aws_vpc.main.id
+  vpc_id      = aws_vpc.main.id
+  description = "ECS Security Group for infraweave-${var.environment}"
 
   # No ingress rules
 
@@ -190,6 +223,7 @@ resource "aws_security_group" "ecs_sg" {
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic to fetch images from ECR"
   }
 
   egress {
@@ -197,8 +231,29 @@ resource "aws_security_group" "ecs_sg" {
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic to talk to AWS services"
   }
 }
+
+# resource "aws_vpc_endpoint" "s3" {
+#   vpc_id            = aws_vpc.main.id
+#   vpc_endpoint_type = "Gateway"
+#   service_name      = "com.amazonaws.${var.region}.s3"
+
+#   route_table_ids = [
+#     aws_route_table.public.id
+#   ]
+
+#   policy = jsonencode({
+#     Version = "2012-10-17"
+#     Statement = [{
+#       Effect    = "Allow"
+#       Principal = "*"
+#       Action    = ["s3:GetObject", "s3:HeadObject"]
+#       Resource = "arn:aws:s3:::tf-providers-${var.central_account_id}-${var.region}-${var.environment}/*"
+#     }]
+#   })
+# }
 
 resource "aws_ssm_parameter" "ecs_security_group" {
   name  = "/infraweave/${var.region}/${var.environment}/workload_ecs_security_group"
@@ -209,6 +264,10 @@ resource "aws_ssm_parameter" "ecs_security_group" {
 # ECS Cluster
 resource "aws_ecs_cluster" "ecs_cluster" {
   name = "terraform-ecs-cluster-${var.environment}"
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
 }
 
 resource "aws_ssm_parameter" "ecs_cluster_name" {
@@ -316,6 +375,7 @@ resource "aws_ssm_parameter" "ecs_task_definition" {
   value = resource.aws_ecs_task_definition.terraform_task.family
 }
 
+#trivy:ignore:aws-cloudwatch-log-group-customer-key
 resource "aws_cloudwatch_log_group" "ecs_log_group" {
   name              = "/infraweave/${var.region}/${var.environment}/runner"
   retention_in_days = 365 # Optional retention period
@@ -382,11 +442,8 @@ resource "aws_iam_role_policy_attachment" "lambda_policy_attachment" {
 data "aws_iam_policy_document" "lambda_policy_document" {
   statement {
     actions = [
-      # "logs:CreateLogGroup",
-      # "logs:CreateLogStream",
-      # "logs:PutLogEvents",
       "logs:GetLogEvents",
     ]
-    resources = ["*"]
+    resources = ["/infraweave/${var.region}/${var.environment}/*"]
   }
 }

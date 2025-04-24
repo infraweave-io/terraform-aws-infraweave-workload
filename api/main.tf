@@ -11,6 +11,10 @@ resource "aws_lambda_function" "api" {
 
   source_code_hash = filebase64sha256("${path.module}/lambda_function_payload.zip")
 
+  tracing_config {
+    mode = "Active"
+  }
+
   environment {
     variables = {
       DYNAMODB_EVENTS_TABLE_NAME         = var.events_table_name

@@ -5,11 +5,15 @@ resource "aws_lambda_function" "lambda" {
   timeout = 300
 
   image_uri = var.reconciler_image_uri
-  role     = aws_iam_role.iam_for_lambda.arn
+  role      = aws_iam_role.iam_for_lambda.arn
 
   package_type = "Image"
 
-  architectures = [ "arm64" ]
+  architectures = ["arm64"]
+
+  tracing_config {
+    mode = "Active"
+  }
 
   environment {
     variables = {
@@ -37,8 +41,8 @@ resource "aws_cloudwatch_event_rule" "lambda_schedule" {
 }
 
 resource "aws_cloudwatch_event_target" "lambda_target" {
-  rule      = aws_cloudwatch_event_rule.lambda_schedule.name
-  arn       = aws_lambda_function.lambda.arn
+  rule = aws_cloudwatch_event_rule.lambda_schedule.name
+  arn  = aws_lambda_function.lambda.arn
 }
 
 resource "aws_lambda_permission" "allow_eventbridge" {
@@ -66,7 +70,7 @@ data "aws_iam_policy_document" "lambda_policy_document" {
 }
 
 resource "aws_iam_role" "iam_for_lambda" {
-  name               = "infraweave_reconciler_workload_role-${var.region}-${var.environment}"
+  name = "infraweave_reconciler_workload_role-${var.region}-${var.environment}"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [

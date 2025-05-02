@@ -444,6 +444,8 @@ data "aws_iam_policy_document" "lambda_policy_document" {
     actions = [
       "logs:GetLogEvents",
     ]
-    resources = ["/infraweave/${var.region}/${var.environment}/*"]
+    resources = [
+      "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/infraweave/${var.region}/${var.environment}/*"
+    ]
   }
 }

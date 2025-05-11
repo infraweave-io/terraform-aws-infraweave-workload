@@ -36,3 +36,15 @@ variable "create_github_oidc_provider" {
   type    = bool
   default = true
 }
+
+variable "vpc_id" {
+  type        = string
+  default     = null
+  description = "Vpc id to be used when spawning runner instances, if not set, a vpc will be created"
+}
+
+variable "subnet_ids" {
+  type        = list(string)
+  default     = []
+  description = "Subnets ids to be used when spawning runner instances, if not set, subnets will be created"
+}

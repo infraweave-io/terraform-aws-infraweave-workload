@@ -52,7 +52,7 @@ module "api" {
   policies_s3_bucket        = local.bucket_names.policies
   change_records_s3_bucket  = local.bucket_names.change_records
   providers_s3_bucket       = local.bucket_names.providers
-  subnet_id                 = resource.aws_subnet.public[0].id # TODO: use both subnets
+  subnet_id                 = length(var.subnet_ids) > 0 ? var.subnet_ids[0] : module.vpc[0].subnet_ids[0] # TODO: use both subnets
   security_group_id         = resource.aws_security_group.ecs_sg.id
   central_account_id        = var.central_account_id
   ecs_cluster_name          = aws_ecs_cluster.ecs_cluster.name
@@ -73,7 +73,7 @@ module "reconciler" {
   modules_s3_bucket              = local.bucket_names.modules
   policies_s3_bucket             = local.bucket_names.policies
   change_records_s3_bucket       = local.bucket_names.change_records
-  subnet_id                      = resource.aws_subnet.public[0].id # TODO: use both subnets
+  subnet_id                      = length(var.subnet_ids) > 0 ? var.subnet_ids[0] : module.vpc[0].subnet_ids[0] # TODO: use both subnets
   security_group_id              = resource.aws_security_group.ecs_sg.id
   central_account_id             = var.central_account_id
   driftcheck_schedule_expression = var.driftcheck_schedule_expression
@@ -132,89 +132,23 @@ resource "aws_iam_role_policy" "ecs_policy" {
 
 data "aws_caller_identity" "current" {}
 
-resource "aws_vpc" "main" {
-  cidr_block = "10.0.0.0/16"
-  tags = {
-    Name = "runner-vpc-infraweave-${var.environment}"
-  }
-}
+module "vpc" {
+  count  = var.vpc_id != null ? 0 : 1
+  source = "./vpc"
 
-resource "aws_flow_log" "main" {
-  log_destination      = aws_s3_bucket.flow_logs.arn
-  log_destination_type = "s3"
-  traffic_type         = "ALL"
-  vpc_id               = aws_vpc.main.id
-  destination_options {
-    file_format        = "parquet"
-    per_hour_partition = true
-  }
-}
-
-#trivy:ignore:aws-s3-enable-bucket-logging
-resource "aws_s3_bucket" "flow_logs" {
-  bucket_prefix = "vpc-flow-logs-infraweave-${var.environment}"
-}
-
-resource "aws_s3_bucket_versioning" "flow_logs" {
-  bucket = aws_s3_bucket.flow_logs.id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-#trivy:ignore:aws-s3-encryption-customer-key
-resource "aws_s3_bucket_server_side_encryption_configuration" "flow_logs" {
-  bucket = aws_s3_bucket.flow_logs.id
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-resource "aws_s3_bucket_public_access_block" "flow_logs" {
-  bucket = aws_s3_bucket.flow_logs.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-resource "aws_subnet" "public" {
-  count             = 2
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = cidrsubnet(aws_vpc.main.cidr_block, 8, count.index)
-  availability_zone = element(["${var.region}a", "${var.region}b"], count.index)
+  environment = var.environment
+  region      = var.region
 }
 
 resource "aws_ssm_parameter" "ecs_subnet_id" {
   name  = "/infraweave/${var.region}/${var.environment}/workload_ecs_subnet_id"
   type  = "String"
-  value = resource.aws_subnet.public[0].id # TODO: use both subnets
-}
-
-resource "aws_internet_gateway" "gw" {
-  vpc_id = aws_vpc.main.id
-}
-
-resource "aws_route_table" "public" {
-  vpc_id = aws_vpc.main.id
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.gw.id
-  }
-}
-
-resource "aws_route_table_association" "public" {
-  count          = 2
-  subnet_id      = aws_subnet.public[count.index].id
-  route_table_id = aws_route_table.public.id
+  value = length(var.subnet_ids) > 0 ? var.subnet_ids[0] : module.vpc[0].subnet_ids[0] # TODO: use both subnets
 }
 
 #trivy:ignore:aws-ec2-no-public-egress-sgr
 resource "aws_security_group" "ecs_sg" {
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = var.vpc_id != null ? var.vpc_id : module.vpc[0].vpc_id
   description = "ECS Security Group for infraweave-${var.environment}"
 
   # No ingress rules

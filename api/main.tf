@@ -30,7 +30,7 @@ resource "aws_lambda_function" "api" {
       ENVIRONMENT                        = var.environment
       ECS_CLUSTER_NAME                   = var.ecs_cluster_name
       ECS_TASK_DEFINITION                = "terraform-task-${var.environment}"
-      SUBNET_ID                          = var.subnet_id
+      SUBNET_ID                          = var.subnet_id # TODO: add multiple subnets
       SECURITY_GROUP_ID                  = var.security_group_id
       CENTRAL_ACCOUNT_ID                 = var.central_account_id
       NOTIFICATION_TOPIC_ARN             = var.notification_topic_arn

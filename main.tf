@@ -20,7 +20,7 @@ locals {
 
   notification_topic_arn = "arn:aws:sns:${var.region}:${var.central_account_id}:infraweave-${var.environment}"
 
-  image_version = "v0.0.84-arm64"
+  image_version = "v0.0.85-arm64"
 
   pull_through_ecr = "infraweave-ecr-public"
 
@@ -286,6 +286,10 @@ resource "aws_ecs_task_definition" "terraform_task" {
       },
       {
         name  = "ENVIRONMENT"
+        value = var.environment
+      },
+      {
+        name  = "INFRAWEAVE_ENV"
         value = var.environment
       },
       {

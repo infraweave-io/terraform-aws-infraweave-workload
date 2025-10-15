@@ -174,6 +174,16 @@ def publish_notification(event):
 
     return response
 
+def get_environment_variables(event):
+    return {
+        'statusCode': 200,
+        'body': {
+            "DYNAMODB_TF_LOCKS_TABLE_ARN": os.environ.get('DYNAMODB_TF_LOCKS_TABLE_ARN'),
+            "TF_STATE_S3_BUCKET": os.environ.get('TF_STATE_S3_BUCKET'),
+            "REGION": os.environ.get('REGION'),
+        }
+    }
+
 processes = {
     'insert_db': insert_db,
     'transact_write': transact_write,
@@ -183,6 +193,7 @@ processes = {
     'read_logs': read_logs,
     'generate_presigned_url': generate_presigned_url,
     'publish_notification': publish_notification,
+    'get_environment_variables': get_environment_variables,
 }
 
 def handler(event, context):

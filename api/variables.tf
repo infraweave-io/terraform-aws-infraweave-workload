@@ -18,6 +18,10 @@ variable "change_records_table_name" {
   type = string
 }
 
+variable "tf_locks_table_arn" {
+  type = string
+}
+
 variable "region" {
   type = string
 }
@@ -43,6 +47,10 @@ variable "change_records_s3_bucket" {
 }
 
 variable "providers_s3_bucket" {
+  type = string
+}
+
+variable "tf_state_s3_bucket" {
   type = string
 }
 

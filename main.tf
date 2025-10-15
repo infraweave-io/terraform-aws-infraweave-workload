@@ -48,10 +48,12 @@ module "api" {
   deployments_table_name    = local.dynamodb_table_names.deployments
   policies_table_name       = local.dynamodb_table_names.policies
   change_records_table_name = local.dynamodb_table_names.change_records
+  tf_locks_table_arn        = "arn:aws:dynamodb:${var.region}:${var.central_account_id}:table/${local.dynamodb_table_names.tf_locks}"
   modules_s3_bucket         = local.bucket_names.modules
   policies_s3_bucket        = local.bucket_names.policies
   change_records_s3_bucket  = local.bucket_names.change_records
   providers_s3_bucket       = local.bucket_names.providers
+  tf_state_s3_bucket        = local.bucket_names.tf_state
   subnet_id                 = length(var.subnet_ids) > 0 ? var.subnet_ids[0] : module.vpc[0].subnet_ids[0] # TODO: use both subnets
   security_group_id         = resource.aws_security_group.ecs_sg.id
   central_account_id        = var.central_account_id

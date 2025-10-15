@@ -22,10 +22,12 @@ resource "aws_lambda_function" "api" {
       DYNAMODB_DEPLOYMENTS_TABLE_NAME    = var.deployments_table_name
       DYNAMODB_POLICIES_TABLE_NAME       = var.policies_table_name
       DYNAMODB_CHANGE_RECORDS_TABLE_NAME = var.change_records_table_name
+      DYNAMODB_TF_LOCKS_TABLE_ARN        = var.tf_locks_table_arn
       MODULE_S3_BUCKET                   = var.modules_s3_bucket
       POLICY_S3_BUCKET                   = var.policies_s3_bucket
       CHANGE_RECORD_S3_BUCKET            = var.change_records_s3_bucket
       PROVIDERS_S3_BUCKET                = var.providers_s3_bucket
+      TF_STATE_S3_BUCKET                 = var.tf_state_s3_bucket
       REGION                             = var.region
       ENVIRONMENT                        = var.environment
       ECS_CLUSTER_NAME                   = var.ecs_cluster_name

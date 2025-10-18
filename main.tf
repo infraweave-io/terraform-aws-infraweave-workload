@@ -59,6 +59,7 @@ module "api" {
   central_account_id        = var.central_account_id
   ecs_cluster_name          = aws_ecs_cluster.ecs_cluster.name
   notification_topic_arn    = local.notification_topic_arn
+  is_primary_region         = var.is_primary_region
 }
 
 module "reconciler" {
@@ -96,7 +97,9 @@ module "oidc" {
 }
 
 resource "aws_iam_role" "ecs_service_role" {
-  name = "ecs-infraweave-${var.region}-${var.environment}-service-role"
+  count = var.is_primary_region ? 1 : 0
+
+  name = "ecs-infraweave-${var.environment}-service-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -115,8 +118,10 @@ resource "aws_iam_role" "ecs_service_role" {
 
 #trivy:ignore:aws-iam-no-policy-wildcards
 resource "aws_iam_role_policy" "ecs_policy" {
+  count = var.is_primary_region ? 1 : 0
+
   name = "ecs-infraweave-${var.environment}-policy"
-  role = aws_iam_role.ecs_service_role.id
+  role = aws_iam_role.ecs_service_role[0].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -250,7 +255,7 @@ resource "aws_ecs_task_definition" "terraform_task" {
   cpu                      = "1024"
   memory                   = "2048"
   execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
-  task_role_arn            = aws_iam_role.ecs_service_role.arn
+  task_role_arn            = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/ecs-infraweave-${var.environment}-service-role"
 
   runtime_platform {
     cpu_architecture        = "ARM64"
@@ -377,7 +382,7 @@ resource "aws_iam_role" "iam_for_lambda" {
           "sts:AssumeRole",
         ]
         Principal = {
-          AWS = "arn:aws:iam::${var.central_account_id}:role/infraweave_api_role-${var.region}-${var.environment}"
+          AWS = "arn:aws:iam::${var.central_account_id}:role/infraweave_api_role-${var.environment}"
         }
         Effect = "Allow"
         Sid    = ""

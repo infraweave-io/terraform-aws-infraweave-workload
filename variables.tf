@@ -48,3 +48,9 @@ variable "subnet_ids" {
   default     = []
   description = "Subnets ids to be used when spawning runner instances, if not set, subnets will be created"
 }
+
+variable "is_primary_region" {
+  type        = bool
+  default     = false
+  description = "Whether this region is the primary region for global resources such as roles and OIDC provider"
+}

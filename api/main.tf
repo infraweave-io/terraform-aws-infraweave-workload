@@ -7,7 +7,7 @@ resource "aws_lambda_function" "api" {
   timeout = 15
 
   filename = "${path.module}/lambda_function_payload.zip"
-  role     = aws_iam_role.iam_for_lambda.arn
+  role     = "arn:aws:iam::${var.account_id}:role/infraweave_api_role-${var.environment}"
 
   source_code_hash = filebase64sha256("${path.module}/lambda_function_payload.zip")
 
@@ -234,7 +234,9 @@ resource "aws_lambda_permission" "allow_invoke_from_central_account" {
 }
 
 resource "aws_iam_role" "iam_for_lambda" {
-  name = "infraweave_api_role-${var.region}-${var.environment}"
+  count = var.is_primary_region ? 1 : 0
+
+  name = "infraweave_api_role-${var.environment}"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -254,14 +256,18 @@ resource "aws_iam_role" "iam_for_lambda" {
 }
 
 resource "aws_iam_policy" "lambda_policy" {
-  name        = "infraweave_api_workload_access_policy-${var.region}-${var.environment}"
+  count = var.is_primary_region ? 1 : 0
+
+  name        = "infraweave_api_workload_access_policy-${var.environment}"
   description = "IAM policy for Lambda to launch CodeBuild and access CloudWatch Logs"
   policy      = data.aws_iam_policy_document.lambda_policy_document.json
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_policy_attachment" {
-  role       = aws_iam_role.iam_for_lambda.name
-  policy_arn = aws_iam_policy.lambda_policy.arn
+  count = var.is_primary_region ? 1 : 0
+
+  role       = aws_iam_role.iam_for_lambda[0].name
+  policy_arn = aws_iam_policy.lambda_policy[0].arn
 }
 
 data "archive_file" "lambda" {

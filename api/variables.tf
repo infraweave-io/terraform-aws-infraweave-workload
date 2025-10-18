@@ -73,3 +73,7 @@ variable "ecs_cluster_name" {
 variable "notification_topic_arn" {
   type = string
 }
+
+variable "is_primary_region" {
+  type = bool
+}

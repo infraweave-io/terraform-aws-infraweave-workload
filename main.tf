@@ -20,7 +20,7 @@ locals {
 
   notification_topic_arn = "arn:aws:sns:${var.region}:${var.central_account_id}:infraweave-${var.environment}"
 
-  image_version = "v0.0.85-arm64"
+  image_version = "v0.0.91-arm64"
 
   pull_through_ecr = "infraweave-ecr-public"
 
@@ -146,6 +146,8 @@ resource "aws_ssm_parameter" "ecs_subnet_id" {
   name  = "/infraweave/${var.region}/${var.environment}/workload_ecs_subnet_id"
   type  = "String"
   value = length(var.subnet_ids) > 0 ? var.subnet_ids[0] : module.vpc[0].subnet_ids[0] # TODO: use both subnets
+
+  region = var.region
 }
 
 #trivy:ignore:aws-ec2-no-public-egress-sgr
@@ -170,6 +172,8 @@ resource "aws_security_group" "ecs_sg" {
     cidr_blocks = ["0.0.0.0/0"]
     description = "Allow all outbound traffic to talk to AWS services"
   }
+
+  region = var.region
 }
 
 # resource "aws_vpc_endpoint" "s3" {
@@ -196,6 +200,8 @@ resource "aws_ssm_parameter" "ecs_security_group" {
   name  = "/infraweave/${var.region}/${var.environment}/workload_ecs_security_group"
   type  = "String"
   value = resource.aws_security_group.ecs_sg.id
+
+  region = var.region
 }
 
 # ECS Cluster
@@ -205,12 +211,16 @@ resource "aws_ecs_cluster" "ecs_cluster" {
     name  = "containerInsights"
     value = "enabled"
   }
+
+  region = var.region
 }
 
 resource "aws_ssm_parameter" "ecs_cluster_name" {
   name  = "/infraweave/${var.region}/${var.environment}/workload_ecs_cluster_name"
   type  = "String"
   value = resource.aws_ecs_cluster.ecs_cluster.name
+
+  region = var.region
 }
 
 resource "aws_iam_role" "ecs_task_execution_role" {
@@ -308,18 +318,24 @@ resource "aws_ecs_task_definition" "terraform_task" {
       }
     ]
   }])
+
+  region = var.region
 }
 
 resource "aws_ssm_parameter" "ecs_task_definition" {
   name  = "/infraweave/${var.region}/${var.environment}/workload_ecs_task_definition"
   type  = "String"
   value = resource.aws_ecs_task_definition.terraform_task.family
+
+  region = var.region
 }
 
 #trivy:ignore:aws-cloudwatch-log-group-customer-key
 resource "aws_cloudwatch_log_group" "ecs_log_group" {
   name              = "/infraweave/${var.region}/${var.environment}/runner"
   retention_in_days = 365 # Optional retention period
+
+  region = var.region
 }
 
 
@@ -344,6 +360,8 @@ resource "aws_cloudwatch_log_resource_policy" "cross_account_read_policy" {
   ]
 }
 EOF
+
+  region = var.region
 }
 
 

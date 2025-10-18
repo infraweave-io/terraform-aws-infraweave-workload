@@ -33,16 +33,22 @@ resource "aws_lambda_function" "lambda" {
       CENTRAL_ACCOUNT_ID                 = var.central_account_id
     }
   }
+
+  region = var.region
 }
 
 resource "aws_cloudwatch_event_rule" "lambda_schedule" {
   name                = "infraweave_reconciler_schedule-${var.environment}"
   schedule_expression = var.driftcheck_schedule_expression
+
+  region = var.region
 }
 
 resource "aws_cloudwatch_event_target" "lambda_target" {
   rule = aws_cloudwatch_event_rule.lambda_schedule.name
   arn  = aws_lambda_function.lambda.arn
+
+  region = var.region
 }
 
 resource "aws_lambda_permission" "allow_eventbridge" {
@@ -51,6 +57,8 @@ resource "aws_lambda_permission" "allow_eventbridge" {
   function_name = aws_lambda_function.lambda.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.lambda_schedule.arn
+
+  region = var.region
 }
 
 data "aws_iam_policy_document" "lambda_policy_document" {

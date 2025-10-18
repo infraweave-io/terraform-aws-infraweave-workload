@@ -38,6 +38,8 @@ resource "aws_lambda_function" "api" {
       NOTIFICATION_TOPIC_ARN             = var.notification_topic_arn
     }
   }
+
+  region = var.region
 }
 
 data "aws_iam_policy_document" "lambda_policy_document" {
@@ -227,6 +229,8 @@ resource "aws_lambda_permission" "allow_invoke_from_central_account" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.api.function_name
   principal     = "arn:aws:iam::${var.central_account_id}:root"
+
+  region = var.region
 }
 
 resource "aws_iam_role" "iam_for_lambda" {

@@ -119,6 +119,16 @@ def generate_presigned_url(event):
     )
     return {'url': url}
 
+def get_job_status(event):
+    ecs = boto3.client('ecs')
+    payload = event.get('data')
+    res = ecs.describe_tasks(
+        cluster=ecs_cluster_name,
+        tasks=[payload.get('job_id')]
+    )
+    is_running = 'running' if res['tasks'] and res['tasks'][0]['lastStatus'] == True else False
+    return {'is_running': is_running, 'job_id': payload.get('job_id')}
+
 def start_runner(event):
     ecs = boto3.client('ecs')
     payload = event.get('data')
@@ -189,6 +199,7 @@ processes = {
     'transact_write': transact_write,
     'upload_file_base64': upload_file_base64,
     'read_db': read_db,
+    'get_job_status': get_job_status,
     'start_runner': start_runner,
     'read_logs': read_logs,
     'generate_presigned_url': generate_presigned_url,

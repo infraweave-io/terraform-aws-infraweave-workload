@@ -64,6 +64,7 @@ data "aws_iam_policy_document" "lambda_policy_document" {
   statement {
     actions = [
       "ecs:RunTask",
+      "ecs:DescribeTasks", # To check task (job) status
       "iam:PassRole",
       # "dynamodb:PutItem",
       # "dynamodb:TransactWriteItems",

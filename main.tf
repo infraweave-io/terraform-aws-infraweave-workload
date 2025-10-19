@@ -20,7 +20,7 @@ locals {
 
   notification_topic_arn = "arn:aws:sns:${var.region}:${var.central_account_id}:infraweave-${var.environment}"
 
-  image_version = "v0.0.91-arm64"
+  image_version = "v0.0.92-arm64"
 
   pull_through_ecr = "infraweave-ecr-public"
 

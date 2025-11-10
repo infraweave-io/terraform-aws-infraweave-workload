@@ -54,3 +54,8 @@ variable "is_primary_region" {
   default     = false
   description = "Whether this region is the primary region for global resources such as roles and OIDC provider"
 }
+variable "log_retention_days" {
+  type        = number
+  default     = 365
+  description = "Number of days to retain CloudWatch logs"
+}

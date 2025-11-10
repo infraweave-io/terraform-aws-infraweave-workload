@@ -5,7 +5,7 @@ resource "aws_lambda_function" "lambda" {
   timeout = 300
 
   image_uri = var.reconciler_image_uri
-  role      = aws_iam_role.iam_for_lambda.arn
+  role      = "arn:aws:iam::${var.account_id}:role/infraweave_reconciler_workload_role-${var.environment}"
 
   package_type = "Image"
 
@@ -62,6 +62,8 @@ resource "aws_lambda_permission" "allow_eventbridge" {
 }
 
 data "aws_iam_policy_document" "lambda_policy_document" {
+  count = var.is_primary_region ? 1 : 0
+
   statement {
     actions = [
       "ecr:*",
@@ -78,7 +80,9 @@ data "aws_iam_policy_document" "lambda_policy_document" {
 }
 
 resource "aws_iam_role" "iam_for_lambda" {
-  name = "infraweave_reconciler_workload_role-${var.region}-${var.environment}"
+  count = var.is_primary_region ? 1 : 0
+
+  name = "infraweave_reconciler_workload_role-${var.environment}"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -97,12 +101,16 @@ resource "aws_iam_role" "iam_for_lambda" {
 }
 
 resource "aws_iam_policy" "lambda_policy" {
-  name        = "infraweave_reconciler_workload_access_policy-${var.region}-${var.environment}"
+  count = var.is_primary_region ? 1 : 0
+
+  name        = "infraweave_reconciler_workload_access_policy-${var.environment}"
   description = "IAM policy for Lambda to launch CodeBuild and access CloudWatch Logs"
-  policy      = data.aws_iam_policy_document.lambda_policy_document.json
+  policy      = data.aws_iam_policy_document.lambda_policy_document[0].json
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_policy_attachment" {
-  role       = aws_iam_role.iam_for_lambda.name
-  policy_arn = aws_iam_policy.lambda_policy.arn
+  count = var.is_primary_region ? 1 : 0
+
+  role       = aws_iam_role.iam_for_lambda[0].name
+  policy_arn = aws_iam_policy.lambda_policy[0].arn
 }

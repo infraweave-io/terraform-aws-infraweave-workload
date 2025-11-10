@@ -24,7 +24,7 @@ locals {
 
   pull_through_ecr = "infraweave-ecr-public"
 
-  runner_image     = "infraweave/runner:${local.image_version}"
+  runner_image     = "infraweave/runner:tofu-${local.image_version}"
   runner_image_uri = "${var.central_account_id}.dkr.ecr.${var.region}.amazonaws.com/${local.pull_through_ecr}/${local.runner_image}"
 
   reconciler_image     = "infraweave/reconciler-aws:${local.image_version}"
@@ -81,6 +81,7 @@ module "reconciler" {
   central_account_id             = var.central_account_id
   driftcheck_schedule_expression = var.driftcheck_schedule_expression
   reconciler_image_uri           = local.reconciler_image_uri
+  is_primary_region              = var.is_primary_region
 }
 
 module "oidc" {
@@ -229,7 +230,9 @@ resource "aws_ssm_parameter" "ecs_cluster_name" {
 }
 
 resource "aws_iam_role" "ecs_task_execution_role" {
-  name = "ecsTaskExecutionRole-${var.region}-${var.environment}"
+  count = var.is_primary_region ? 1 : 0
+
+  name = "ecsTaskExecutionRole-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -244,7 +247,9 @@ resource "aws_iam_role" "ecs_task_execution_role" {
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
-  role       = aws_iam_role.ecs_task_execution_role.name
+  count = var.is_primary_region ? 1 : 0
+
+  role       = aws_iam_role.ecs_task_execution_role[0].name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
@@ -254,7 +259,7 @@ resource "aws_ecs_task_definition" "terraform_task" {
   requires_compatibilities = ["FARGATE"]
   cpu                      = "1024"
   memory                   = "2048"
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  execution_role_arn       = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/ecsTaskExecutionRole-${var.environment}"
   task_role_arn            = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/ecs-infraweave-${var.environment}-service-role"
 
   runtime_platform {
@@ -338,14 +343,16 @@ resource "aws_ssm_parameter" "ecs_task_definition" {
 #trivy:ignore:aws-cloudwatch-log-group-customer-key
 resource "aws_cloudwatch_log_group" "ecs_log_group" {
   name              = "/infraweave/${var.region}/${var.environment}/runner"
-  retention_in_days = 365 # Optional retention period
+  retention_in_days = var.log_retention_days
 
   region = var.region
 }
 
 
 resource "aws_cloudwatch_log_resource_policy" "cross_account_read_policy" {
-  policy_name = "CentralApiReadPolicy-${var.region}-${var.environment}"
+  count = var.is_primary_region ? 1 : 0
+
+  policy_name = "CentralApiReadPolicy-${var.environment}"
 
   policy_document = <<EOF
 {
@@ -373,7 +380,9 @@ EOF
 ######
 
 resource "aws_iam_role" "iam_for_lambda" {
-  name = "infraweave_api_read_log-${var.region}-${var.environment}"
+  count = var.is_primary_region ? 1 : 0
+
+  name = "infraweave_api_read_log-${var.environment}"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -392,24 +401,29 @@ resource "aws_iam_role" "iam_for_lambda" {
 }
 
 resource "aws_iam_policy" "lambda_policy" {
-  name        = "infraweave_api_central_log_read_access_policy-${var.region}-${var.environment}"
+  count = var.is_primary_region ? 1 : 0
+
+  name        = "infraweave_api_central_log_read_access_policy-${var.environment}"
   description = "IAM policy for Lambda to read and access CloudWatch Logs from central account"
-  policy      = data.aws_iam_policy_document.lambda_policy_document.json
+  policy      = data.aws_iam_policy_document.lambda_policy_document[0].json
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_policy_attachment" {
-  role       = aws_iam_role.iam_for_lambda.name
-  policy_arn = aws_iam_policy.lambda_policy.arn
+  count = var.is_primary_region ? 1 : 0
+
+  role       = aws_iam_role.iam_for_lambda[0].name
+  policy_arn = aws_iam_policy.lambda_policy[0].arn
 }
 
 
 data "aws_iam_policy_document" "lambda_policy_document" {
+  count = var.is_primary_region ? 1 : 0
   statement {
     actions = [
       "logs:GetLogEvents",
     ]
     resources = [
-      "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/infraweave/${var.region}/${var.environment}/*"
+      "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/infraweave/*/${var.environment}/*"
     ]
   }
 }

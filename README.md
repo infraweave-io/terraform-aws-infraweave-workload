@@ -18,6 +18,7 @@ Alpha version, expect changes to happen
 | <a name="input_driftcheck_schedule_expression"></a> [driftcheck\_schedule\_expression](#input\_driftcheck\_schedule\_expression) | n/a | `string` | `"rate(2 minutes)"` | no |
 | <a name="input_environment"></a> [environment](#input\_environment) | n/a | `string` | n/a | yes |
 | <a name="input_is_primary_region"></a> [is\_primary\_region](#input\_is\_primary\_region) | Whether this region is the primary region for global resources such as roles and OIDC provider | `bool` | `false` | no |
+| <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Number of days to retain CloudWatch logs | `number` | `365` | no |
 | <a name="input_region"></a> [region](#input\_region) | n/a | `string` | n/a | yes |
 | <a name="input_subnet_ids"></a> [subnet\_ids](#input\_subnet\_ids) | Subnets ids to be used when spawning runner instances, if not set, subnets will be created | `list(string)` | `[]` | no |
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | Vpc id to be used when spawning runner instances, if not set, a vpc will be created | `string` | `null` | no |

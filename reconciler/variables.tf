@@ -61,3 +61,7 @@ variable "driftcheck_schedule_expression" {
 variable "reconciler_image_uri" {
   type = string
 }
+
+variable "is_primary_region" {
+  type = bool
+}

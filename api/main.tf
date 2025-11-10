@@ -47,7 +47,7 @@ data "aws_iam_policy_document" "lambda_policy_document" {
   statement {
     effect    = "Allow"
     actions   = ["sns:Publish"]
-    resources = [var.notification_topic_arn]
+    resources = ["arn:aws:sns:*:${var.central_account_id}:infraweave-${var.environment}"]
   }
 
   statement {

@@ -85,7 +85,7 @@ module "reconciler" {
 }
 
 module "oidc" {
-  count  = length(local.oidc_allowed_github_repos) > 0 ? 1 : 0
+  count  = length(local.oidc_allowed_github_repos) > 0 && var.is_primary_region ? 1 : 0
   source = "./oidc"
 
   infraweave_env              = var.environment

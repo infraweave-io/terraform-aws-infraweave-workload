@@ -151,7 +151,7 @@ module "vpc" {
 resource "aws_ssm_parameter" "ecs_subnet_id" {
   name  = "/infraweave/${var.region}/${var.environment}/workload_ecs_subnet_id"
   type  = "String"
-  value = length(var.subnet_ids) > 0 ? var.subnet_ids[0] : module.vpc[0].subnet_ids[0] # TODO: use both subnets
+  value = length(var.subnet_ids) > 0 ? join(",", var.subnet_ids) : join(",", module.vpc[0].subnet_ids)
 
   region = var.region
 }
@@ -254,7 +254,7 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
 }
 
 resource "aws_ecs_task_definition" "terraform_task" {
-  family                   = "terraform-task-${var.environment}"
+  family                   = "infraweave-runner-${var.environment}"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = "1024"
@@ -325,6 +325,55 @@ resource "aws_ecs_task_definition" "terraform_task" {
       {
         name  = "RUST_BACKTRACE" // TODO remove?
         value = "1"
+      },
+      # For direct aws
+      {
+        name  = "DYNAMODB_EVENTS_TABLE_NAME"
+        value = "arn:aws:dynamodb:${var.region}:${var.central_account_id}:table/${var.central_output.dynamodb_events_table_name}"
+      },
+      {
+        name  = "DYNAMODB_MODULES_TABLE_NAME"
+        value = "arn:aws:dynamodb:${var.region}:${var.central_account_id}:table/${var.central_output.dynamodb_modules_table_name}"
+      },
+      {
+        name  = "DYNAMODB_DEPLOYMENTS_TABLE_NAME"
+        value = "arn:aws:dynamodb:${var.region}:${var.central_account_id}:table/${var.central_output.dynamodb_deployments_table_name}"
+      },
+      {
+        name  = "DYNAMODB_POLICIES_TABLE_NAME"
+        value = "arn:aws:dynamodb:${var.region}:${var.central_account_id}:table/${var.central_output.dynamodb_policies_table_name}"
+      },
+      {
+        name  = "DYNAMODB_CHANGE_RECORDS_TABLE_NAME"
+        value = "arn:aws:dynamodb:${var.region}:${var.central_account_id}:table/${var.central_output.dynamodb_change_records_table_name}"
+      },
+      {
+        name  = "DYNAMODB_CONFIG_TABLE_NAME"
+        value = "arn:aws:dynamodb:${var.region}:${var.central_account_id}:table/${var.central_output.dynamodb_config_table_name}"
+      },
+      {
+        name  = "MODULE_S3_BUCKET"
+        value = var.central_output.modules_s3_bucket
+      },
+      {
+        name  = "POLICY_S3_BUCKET"
+        value = var.central_output.policies_s3_bucket
+      },
+      {
+        name  = "CHANGE_RECORD_S3_BUCKET"
+        value = var.central_output.change_records_s3_bucket
+      },
+      {
+        name  = "PROVIDERS_S3_BUCKET"
+        value = var.central_output.providers_s3_bucket
+      },
+      # {
+      #   name  = "INFRAWEAVE_CENTRAL_ROLE_ARN"
+      #   value = "arn:aws:iam::${var.central_account_id}:role/infraweave-${var.environment}-workload-assume-role-runner"
+      # },
+      {
+        name  = "NOTIFICATION_TOPIC_ARN"
+        value = var.central_output.notification_topic_arn
       }
     ]
   }])
@@ -418,7 +467,9 @@ resource "aws_iam_role_policy_attachment" "lambda_policy_attachment" {
 
 data "aws_iam_policy_document" "lambda_policy_document" {
   count = var.is_primary_region ? 1 : 0
+
   statement {
+    sid = "CloudWatchLogs"
     actions = [
       "logs:GetLogEvents",
     ]
@@ -426,6 +477,101 @@ data "aws_iam_policy_document" "lambda_policy_document" {
       "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/infraweave/*/${var.environment}/*"
     ]
   }
+
+  statement {
+    sid = "DescribeECSTasks"
+    actions = [
+      "ecs:DescribeTasks"
+    ]
+    resources = [
+      "arn:aws:ecs:*:${data.aws_caller_identity.current.account_id}:task/terraform-ecs-cluster-${var.environment}/*"
+    ]
+  }
+
+  statement {
+    sid = "SSMGetParameter"
+    actions = [
+      "ssm:GetParameter"
+    ]
+    resources = [
+      "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/infraweave/*/${var.environment}/*"
+    ]
+  }
+}
+
+# IAM Role for Central API to execute runner tasks
+resource "aws_iam_role" "api_execute_runner" {
+  count = var.is_primary_region ? 1 : 0
+
+  name = "infraweave_api_execute_runner-${var.environment}"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "sts:AssumeRole",
+          "sts:TagSession",
+        ]
+        Principal = {
+          AWS = "arn:aws:iam::${var.central_account_id}:role/infraweave-${var.environment}-workload-assume-role-api"
+        }
+        Effect = "Allow"
+      }
+    ]
+  })
+}
+
+data "aws_iam_policy_document" "api_execute_runner_policy" {
+  count = var.is_primary_region ? 1 : 0
+
+  statement {
+    sid = "ECSRunTask"
+    actions = [
+      "ecs:RunTask",
+      "ecs:DescribeTasks"
+    ]
+    resources = [
+      "arn:aws:ecs:*:${data.aws_caller_identity.current.account_id}:task-definition/infraweave-runner-${var.environment}:*",
+      "arn:aws:ecs:*:${data.aws_caller_identity.current.account_id}:task/terraform-ecs-cluster-${var.environment}/*"
+    ]
+  }
+
+  statement {
+    sid = "PassRole"
+    actions = [
+      "iam:PassRole"
+    ]
+    resources = [
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/ecsTaskExecutionRole-${var.environment}",
+      "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/ecs-infraweave-${var.environment}-service-role"
+    ]
+  }
+
+  statement {
+    sid = "SSMGetParameter"
+    actions = [
+      "ssm:GetParameter"
+    ]
+    resources = [
+      "arn:aws:ssm:*:${data.aws_caller_identity.current.account_id}:parameter/infraweave/*/${var.environment}/*"
+    ]
+  }
+}
+
+resource "aws_iam_policy" "api_execute_runner_policy" {
+  count = var.is_primary_region ? 1 : 0
+
+  name        = "infraweave_api_execute_runner_policy-${var.environment}"
+  description = "IAM policy for Central API to execute runner tasks"
+  policy      = data.aws_iam_policy_document.api_execute_runner_policy[0].json
+}
+
+resource "aws_iam_role_policy_attachment" "api_execute_runner_policy_attachment" {
+  count = var.is_primary_region ? 1 : 0
+
+  role       = aws_iam_role.api_execute_runner[0].name
+  policy_arn = aws_iam_policy.api_execute_runner_policy[0].arn
+}
 
 # CloudWatch Observability Access Manager Link
 resource "aws_oam_link" "workload" {

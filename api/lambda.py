@@ -136,6 +136,7 @@ def start_runner(event):
         cluster=ecs_cluster_name,
         taskDefinition=ecs_task_definition,
         launchType='FARGATE',
+        propagateTags='TASK_DEFINITION',
         overrides={
             'cpu': payload.get('cpu'),
             'memory': payload.get('memory'),

@@ -72,3 +72,7 @@ variable "log_retention_days" {
   default     = 365
   description = "Number of days to retain CloudWatch logs"
 }
+
+variable "central_output" {
+  type = any
+}

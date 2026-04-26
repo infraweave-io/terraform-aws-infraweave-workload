@@ -27,10 +27,13 @@ resource "aws_lambda_function" "lambda" {
       CHANGE_RECORD_S3_BUCKET            = var.change_records_s3_bucket
       REGION                             = var.region
       ENVIRONMENT                        = var.environment
-      ECS_TASK_DEFINITION                = "terraform-task-${var.environment}"
+      ECS_TASK_DEFINITION                = "infraweave-runner-${var.environment}"
       SUBNET_ID                          = var.subnet_id
       SECURITY_GROUP_ID                  = var.security_group_id
       CENTRAL_ACCOUNT_ID                 = var.central_account_id
+      ACCOUNT_ID                         = var.account_id
+      INFRAWEAVE_CENTRAL_ROLE_ARN        = "arn:aws:iam::${var.central_account_id}:role/infraweave-${var.environment}-workload-assume-role-reconciler"
+      LOG_LEVEL                          = "info"
     }
   }
 
@@ -76,6 +79,44 @@ data "aws_iam_policy_document" "lambda_policy_document" {
       "logs:PutLogEvents",
     ]
     resources = ["*"]
+  }
+
+  statement {
+    actions = [
+      "sts:TagSession",
+      "sts:AssumeRole",
+    ]
+    resources = ["arn:aws:iam::${var.central_account_id}:role/infraweave-${var.environment}-workload-assume-role-reconciler"]
+  }
+
+  statement {
+    actions = [
+      "ssm:GetParameter",
+    ]
+    resources = [
+      "arn:aws:ssm:*:*:parameter/infraweave/${var.region}/${var.environment}/workload_ecs_cluster_name",
+      "arn:aws:ssm:*:*:parameter/infraweave/${var.region}/${var.environment}/workload_ecs_subnet_id",
+      "arn:aws:ssm:*:*:parameter/infraweave/${var.region}/${var.environment}/workload_ecs_security_group",
+    ]
+  }
+
+  statement {
+    actions = [
+      "ecs:RunTask",
+    ]
+    resources = [
+      "arn:aws:ecs:${var.region}:${var.account_id}:task-definition/infraweave-runner-${var.environment}:*",
+    ]
+  }
+
+  statement {
+    actions = [
+      "iam:PassRole"
+    ]
+    resources = [
+      "arn:aws:iam::${var.account_id}:role/ecsTaskExecutionRole-${var.environment}",
+      "arn:aws:iam::${var.account_id}:role/ecs-infraweave-${var.environment}-service-role",
+    ]
   }
 }
 

@@ -426,4 +426,31 @@ data "aws_iam_policy_document" "lambda_policy_document" {
       "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:log-group:/infraweave/*/${var.environment}/*"
     ]
   }
+
+# CloudWatch Observability Access Manager Link
+resource "aws_oam_link" "workload" {
+  count = var.enable_observability ? 1 : 0
+
+  label_template  = "$AccountName"
+  sink_identifier = var.central_observability_sink_arn
+
+  resource_types = [
+    "AWS::CloudWatch::Metric",
+    "AWS::Logs::LogGroup",
+    "AWS::XRay::Trace"
+  ]
+
+
+  link_configuration {
+    log_group_configuration {
+      filter = "LogGroupName LIKE '/infraweave/%' OR LogGroupName LIKE '/aws/lambda/infraweave-%'"
+    }
+  }
+
+  tags = {
+    Name        = "InfraWeave Observability Link"
+    Environment = var.environment
+  }
+
+  region = var.region
 }

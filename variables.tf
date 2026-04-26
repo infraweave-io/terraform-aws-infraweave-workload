@@ -54,6 +54,19 @@ variable "is_primary_region" {
   default     = false
   description = "Whether this region is the primary region for global resources such as roles and OIDC provider"
 }
+
+variable "enable_observability" {
+  type        = bool
+  default     = true
+  description = "Enable CloudWatch Observability Access Manager link to central account"
+}
+
+variable "central_observability_sink_arn" {
+  type        = string
+  default     = ""
+  description = "ARN of the central CloudWatch Observability Access Manager sink to link to"
+}
+
 variable "log_retention_days" {
   type        = number
   default     = 365

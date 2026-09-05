@@ -60,6 +60,8 @@ module "api" {
   ecs_cluster_name          = aws_ecs_cluster.ecs_cluster.name
   notification_topic_arn    = local.notification_topic_arn
   is_primary_region         = var.is_primary_region
+  telemetry_exporter        = var.telemetry_exporter
+  telemetry_environment     = var.telemetry_environment
 }
 
 module "reconciler" {
@@ -82,6 +84,8 @@ module "reconciler" {
   driftcheck_schedule_expression = var.driftcheck_schedule_expression
   reconciler_image_uri           = local.reconciler_image_uri
   is_primary_region              = var.is_primary_region
+  telemetry_exporter             = var.reconciler_telemetry_exporter
+  telemetry_environment          = var.telemetry_environment
 }
 
 module "oidc" {
@@ -325,6 +329,26 @@ resource "aws_ecs_task_definition" "terraform_task" {
       {
         name  = "RUST_BACKTRACE" // TODO remove?
         value = "1"
+      },
+      {
+        name  = "LOG_FORMAT"
+        value = "plain"
+      },
+      {
+        name  = "TELEMETRY_EXPORTER"
+        value = var.runner_telemetry_exporter
+      },
+      {
+        name  = "TELEMETRY_ENVIRONMENT"
+        value = var.telemetry_environment
+      },
+      {
+        name  = "TELEMETRY_AWS_REGION"
+        value = var.region
+      },
+      {
+        name  = "TELEMETRY_LOG_GROUP_NAMES"
+        value = aws_cloudwatch_log_group.ecs_log_group.name
       },
       # For direct aws
       {
@@ -583,13 +607,15 @@ resource "aws_oam_link" "workload" {
   resource_types = [
     "AWS::CloudWatch::Metric",
     "AWS::Logs::LogGroup",
-    "AWS::XRay::Trace"
+    "AWS::XRay::Trace",
+    "AWS::ApplicationSignals::Service",
+    "AWS::ApplicationSignals::ServiceLevelObjective"
   ]
 
 
   link_configuration {
     log_group_configuration {
-      filter = "LogGroupName LIKE '/infraweave/%' OR LogGroupName LIKE '/aws/lambda/infraweave-%'"
+      filter = "LogGroupName LIKE '/infraweave/%' OR LogGroupName LIKE '/aws/lambda/infraweave-%' OR LogGroupName IN ('aws/spans')"
     }
   }
 

@@ -77,3 +77,15 @@ variable "notification_topic_arn" {
 variable "is_primary_region" {
   type = bool
 }
+
+variable "telemetry_exporter" {
+  type        = string
+  description = "Telemetry exporter for Rust services. Use \"none\" or \"aws\"."
+  default     = "none"
+}
+
+variable "telemetry_environment" {
+  description = "Value for the deployment.environment resource attribute, e.g. project1-prod. Application Signals builds a service identity from name, type and environment; unset, every account shares the platform default (lambda:default / ecs:default) and its services become indistinguishable in the console and in dashboard series labels."
+  type        = string
+  default     = ""
+}

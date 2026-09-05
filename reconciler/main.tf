@@ -2,7 +2,8 @@
 resource "aws_lambda_function" "lambda" {
   function_name = "infraweave-reconciler-${var.environment}"
 
-  timeout = 300
+  timeout     = 300
+  memory_size = 256
 
   image_uri = var.reconciler_image_uri
   role      = "arn:aws:iam::${var.account_id}:role/infraweave_reconciler_workload_role-${var.environment}"
@@ -34,6 +35,9 @@ resource "aws_lambda_function" "lambda" {
       ACCOUNT_ID                         = var.account_id
       INFRAWEAVE_CENTRAL_ROLE_ARN        = "arn:aws:iam::${var.central_account_id}:role/infraweave-${var.environment}-workload-assume-role-reconciler"
       LOG_LEVEL                          = "info"
+      TELEMETRY_EXPORTER                 = var.telemetry_exporter
+      TELEMETRY_AWS_REGION               = var.region
+      TELEMETRY_ENVIRONMENT              = var.telemetry_environment
     }
   }
 
@@ -154,4 +158,11 @@ resource "aws_iam_role_policy_attachment" "lambda_policy_attachment" {
 
   role       = aws_iam_role.iam_for_lambda[0].name
   policy_arn = aws_iam_policy.lambda_policy[0].arn
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_xray_policy" {
+  count = var.is_primary_region ? 1 : 0
+
+  role       = aws_iam_role.iam_for_lambda[0].name
+  policy_arn = "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
 }

@@ -25,6 +25,8 @@
 | <a name="input_region"></a> [region](#input\_region) | n/a | `string` | n/a | yes |
 | <a name="input_security_group_id"></a> [security\_group\_id](#input\_security\_group\_id) | n/a | `string` | n/a | yes |
 | <a name="input_subnet_id"></a> [subnet\_id](#input\_subnet\_id) | n/a | `string` | n/a | yes |
+| <a name="input_telemetry_environment"></a> [telemetry\_environment](#input\_telemetry\_environment) | Value for the deployment.environment resource attribute, e.g. project1-prod. Application Signals builds a service identity from name, type and environment; unset, every account shares the platform default (lambda:default / ecs:default) and its services become indistinguishable in the console and in dashboard series labels. | `string` | `""` | no |
+| <a name="input_telemetry_exporter"></a> [telemetry\_exporter](#input\_telemetry\_exporter) | Telemetry exporter for Rust services. Use "none" or "aws". | `string` | `"none"` | no |
 | <a name="input_tf_locks_table_arn"></a> [tf\_locks\_table\_arn](#input\_tf\_locks\_table\_arn) | n/a | `string` | n/a | yes |
 | <a name="input_tf_state_s3_bucket"></a> [tf\_state\_s3\_bucket](#input\_tf\_state\_s3\_bucket) | n/a | `string` | n/a | yes |
 

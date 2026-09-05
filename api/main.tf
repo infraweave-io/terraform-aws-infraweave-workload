@@ -37,6 +37,9 @@ resource "aws_lambda_function" "api" {
       CENTRAL_ACCOUNT_ID                 = var.central_account_id
       NOTIFICATION_TOPIC_ARN             = var.notification_topic_arn
       AWS_XRAY_CONTEXT_MISSING           = "LOG_ERROR"
+      TELEMETRY_EXPORTER                 = var.telemetry_exporter
+      TELEMETRY_AWS_REGION               = var.region
+      TELEMETRY_ENVIRONMENT              = var.telemetry_environment
     }
   }
 

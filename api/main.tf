@@ -31,11 +31,15 @@ resource "aws_lambda_function" "api" {
       REGION                             = var.region
       ENVIRONMENT                        = var.environment
       ECS_CLUSTER_NAME                   = var.ecs_cluster_name
-      ECS_TASK_DEFINITION                = "terraform-task-${var.environment}"
+      ECS_TASK_DEFINITION                = "infraweave-runner-${var.environment}"
       SUBNET_ID                          = var.subnet_id # TODO: add multiple subnets
       SECURITY_GROUP_ID                  = var.security_group_id
       CENTRAL_ACCOUNT_ID                 = var.central_account_id
       NOTIFICATION_TOPIC_ARN             = var.notification_topic_arn
+      AWS_XRAY_CONTEXT_MISSING           = "LOG_ERROR"
+      TELEMETRY_EXPORTER                 = var.telemetry_exporter
+      TELEMETRY_AWS_REGION               = var.region
+      TELEMETRY_ENVIRONMENT              = var.telemetry_environment
     }
   }
 
@@ -168,7 +172,10 @@ data "aws_iam_policy_document" "lambda_policy_document" {
       "dynamodb:DeleteItem",
       "dynamodb:Query",
     ]
-    resources = ["arn:aws:dynamodb:${var.region}:${var.account_id}:table/${var.change_records_table_name}"]
+    resources = [
+      "arn:aws:dynamodb:${var.region}:${var.account_id}:table/${var.change_records_table_name}",
+      "arn:aws:dynamodb:${var.region}:${var.account_id}:table/${var.change_records_table_name}/index/EpochIndex",
+    ]
 
     # condition {
     #   test     = "StringLike"
